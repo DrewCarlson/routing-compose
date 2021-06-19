@@ -1,7 +1,6 @@
 package app.softwork.routingcompose
 
 import androidx.compose.runtime.*
-import kotlinx.uuid.*
 
 /**
  * Use the DSL functions to build the expected route handled by a [Router].

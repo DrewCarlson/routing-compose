@@ -29,7 +29,7 @@ public abstract class Router(private val initPath: String) {
     }
 
     @Composable
-    internal fun getPath(initRoute: String): State<String> {
+    public fun getPath(initRoute: String): State<String> {
         require(initRoute.startsWith("/")) { "initRoute must start with a slash." }
         val defaultPath = initPath.ifBlank { initRoute }
         val path = remember { mutableStateOf(defaultPath) }

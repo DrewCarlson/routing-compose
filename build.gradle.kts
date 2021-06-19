@@ -30,7 +30,6 @@ kotlin {
         commonMain {
             dependencies {
                 api(compose.runtime)
-                api("app.softwork:kotlinx-uuid-core:0.0.9")
             }
         }
         commonTest {
@@ -46,6 +45,7 @@ kotlin {
         val jsMain by getting {
             dependencies {
                 api(compose.web.core)
+                implementation(npm("uuid", "8.3.2"))
             }
         }
     }
