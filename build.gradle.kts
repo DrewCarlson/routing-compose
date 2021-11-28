@@ -2,7 +2,7 @@ import java.util.Base64
 
 plugins {
     kotlin("multiplatform") version "1.5.31"
-    id("org.jetbrains.compose") version "1.0.0-rc3"
+    id("org.jetbrains.compose") version "1.0.0-rc5"
     `maven-publish`
     signing
     id("io.github.gradle-nexus.publish-plugin") version "1.1.0"
@@ -105,4 +105,13 @@ nexusPublishing {
             snapshotRepositoryUrl.set(uri("https://s01.oss.sonatype.org/content/repositories/snapshots/"))
         }
     }
+}
+
+if (properties.containsKey("deploy")) {
+    // Use system Node.js installation, see Dockerfile for deploy usage
+    rootProject.plugins
+        .withType(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin::class.java) {
+            rootProject.the<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension>()
+                .download = false
+        }
 }
