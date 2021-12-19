@@ -1,6 +1,7 @@
 package app.softwork.routingcompose
 
 
+import androidx.compose.runtime.*
 import kotlinx.browser.*
 
 /**
@@ -17,21 +18,29 @@ import kotlinx.browser.*
  * instructions. For development environments, see the RoutingCompose Readme
  * for full instructions.
  */
-public object BrowserRouter : Router(window.location.pathname) {
-    init {
-        window.onpopstate = {
-            update(newPath = window.location.pathname)
+public object BrowserRouter : Router() {
+
+    private val currentPath: MutableState<String> = mutableStateOf(window.location.pathname)
+
+    @Composable
+    override fun getPath(initPath: String): State<String> {
+        LaunchedEffect(Unit) {
+            window.onpopstate = {
+                val new: String = window.location.pathname
+                new.let {
+                    currentPath.value = it
+                }
+            }
         }
+        return currentPath
     }
 
     override fun navigate(to: String) {
-        require(to.startsWith("/"))
-
         window.history.pushState(null, "", to)
         /*
         The history API unfortunately provides no callback to listen for
         [window.history.pushState], so we need to notify subscribers when pushing a new path.
          */
-        update(newPath = window.location.pathname)
+        currentPath.value = window.location.pathname
     }
 }

@@ -3,10 +3,26 @@ import app.softwork.routingcompose.*
 import kotlinx.coroutines.*
 import org.jetbrains.compose.web.*
 import org.jetbrains.compose.web.attributes.*
+import org.jetbrains.compose.web.css.*
+import org.jetbrains.compose.web.css.Color.black
+import org.jetbrains.compose.web.css.Color.white
 import org.jetbrains.compose.web.dom.*
+
+object DarkMode : StyleSheet() {
+    init {
+        "body" style {
+            media("prefers-color-scheme: dark") {
+                color(white)
+                backgroundColor(black)
+            }
+        }
+    }
+}
 
 fun main() {
     renderComposableInBody {
+        Style(DarkMode)
+
         Clock()
 
         P {
@@ -22,8 +38,14 @@ fun main() {
     }
 }
 
+@Routing
+@Composable
 fun NavBuilder.Routing() {
+    var foundAnswer by remember { mutableStateOf(false) }
+    Text("Parameters: ${this.parameters?.map}")
+
     route("foo") {
+        Text("Header for /foo")
         int {
             P { Text("Hello user $it") }
             P { Text("Use the back and forward functions of your browser to go navigate back.") }
@@ -38,14 +60,42 @@ fun NavBuilder.Routing() {
                 }
             }
         }
+        Text("Footer for /foo")
+    }
+    if(foundAnswer) {
+        route("question") {
+            Text("life, the universe and everything")
+        }
+    }
+    int {
+        if (it == 42) {
+            SideEffect {
+                foundAnswer = true
+            }
+            Text("Found the answer, new route /question is available")
+            P {
+                NavLink("/question") {
+                    Text("NavLink: Click here to see the question")
+                }
+            }
+        } else {
+            Text("Wrong answer: $it")
+        }
     }
     noMatch {
         P {
             Text("Hello Routing")
         }
         P {
-            NavLink("/foo") {
-                Text("NavLink: Click here to navigate to /foo")
+            var answer by remember { mutableStateOf(0) }
+            Input(InputType.Number) {
+                onChange {
+                    answer = it.value?.toInt() ?: 0
+                }
+                value(answer)
+            }
+            NavLink("/$answer") {
+                Text("Submit answer")
             }
         }
         P {
@@ -71,12 +121,10 @@ fun NavBuilder.Routing() {
 
 @Composable
 fun Clock() {
-    var current by remember { mutableStateOf(0) }
-
-    LaunchedEffect(Unit) {
+    val current by produceState(0) {
         while (true) {
             delay(1000)
-            current += 1
+            value += 1
         }
     }
 

@@ -1,4 +1,5 @@
-import java.util.Base64
+import org.jetbrains.compose.*
+import java.util.*
 
 plugins {
     kotlin("multiplatform") version "1.6.10"
@@ -13,7 +14,7 @@ group = "app.softwork"
 repositories {
     mavenCentral()
     google()
-    maven(url = "https://maven.pkg.jetbrains.space/public/p/compose/dev")
+    jetbrainsCompose()
 }
 
 kotlin {
@@ -25,8 +26,17 @@ kotlin {
     }
 
     explicitApi()
-
+    targets.all {
+        compilations.all {
+            kotlinOptions.allWarningsAsErrors = true
+        }
+    }
     sourceSets {
+        all {
+            languageSettings {
+                progressiveMode = true
+            }
+        }
         commonMain {
             dependencies {
                 api(compose.runtime)
@@ -37,58 +47,65 @@ kotlin {
                 implementation(kotlin("test"))
             }
         }
-        val jvmMain by getting {
-            dependencies {
-                api(compose.desktop.common)
-            }
-        }
         val jsMain by getting {
             dependencies {
                 api(compose.web.core)
-                implementation(npm("uuid", "8.3.2"))
+            }
+        }
+        val jsTest by getting {
+            dependencies {
+                api(compose.web.core)
+                implementation(compose.web.testUtils)
+            }
+        }
+
+        val jvmTest by getting {
+            dependencies {
+                @OptIn(ExperimentalComposeLibrary::class)
+                implementation(compose.uiTestJUnit4) // there is no non-ui testing
+                implementation(compose.desktop.currentOs) // ui-testings needs skiko
             }
         }
     }
 }
 
-task("emptyJar", Jar::class) { }
+val emptyJar by tasks.creating(Jar::class) { }
 
 publishing {
     publications.all {
-        if (this is MavenPublication) {
-            artifact(tasks.getByName("emptyJar")) {
-                classifier = "javadoc"
+        this as MavenPublication
+        artifact(emptyJar) {
+            classifier = "javadoc"
+        }
+        pom {
+            name.set("app.softwork Routing Compose")
+            description.set("A multiplatform library for routing to use with JetPack Compose Web and Desktop")
+            url.set("https://github.com/hfhbd/routing-compose")
+            licenses {
+                license {
+                    name.set("The Apache License, Version 2.0")
+                    url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                }
             }
-            pom {
-                name.set("app.softwork UUID Library")
-                description.set("A multiplatform Kotlin UUID library, forked from https://github.com/cy6erGn0m/kotlinx-uuid")
-                url.set("https://github.com/hfhbd/kotlinx-uuid")
-                licenses {
-                    license {
-                        name.set("The Apache License, Version 2.0")
-                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
-                    }
+            developers {
+                developer {
+                    id.set("hfhbd")
+                    name.set("Philip Wedemann")
+                    email.set("mybztg+mavencentral@icloud.com")
                 }
-                developers {
-                    developer {
-                        id.set("hfhbd")
-                        name.set("Philip Wedemann")
-                        email.set("mybztg+mavencentral@icloud.com")
-                    }
-                }
-                scm {
-                    connection.set("scm:git://github.com/hfhbd/kotlinx-uuid.git")
-                    developerConnection.set("scm:git://github.com/hfhbd/kotlinx-uuid.git")
-                    url.set("https://github.com/hfhbd/kotlinx-uuid")
-                }
+            }
+            scm {
+                connection.set("scm:git://github.com/hfhbd/routing-compose.git")
+                developerConnection.set("scm:git://github.com/hfhbd/routing-compose.git")
+                url.set("https://github.com/hfhbd/routing-compose")
             }
         }
     }
 }
+
 (System.getProperty("signing.privateKey") ?: System.getenv("SIGNING_PRIVATE_KEY"))?.let {
     String(Base64.getDecoder().decode(it)).trim()
 }?.let { key ->
-    println("found key, config signing")
     signing {
         val signingPassword = System.getProperty("signing.password") ?: System.getenv("SIGNING_PASSWORD")
         useInMemoryPgpKeys(key, signingPassword)

@@ -2,125 +2,130 @@ package app.softwork.routingcompose
 
 import androidx.compose.runtime.*
 
+public typealias UUID = String
+
+internal expect fun validateUUID(uuid: UUID): Boolean
+
 /**
  * Use the DSL functions to build the expected route handled by a [Router].
- * If two routes matches the same path, the first declared route is choosen.
+ * If two routes matches the same path, the first declared route is chosen.
  *
- * Unfortunately, every `@Composable` block has to be inside a [ContentNode].
+ * With dynamic routing displaying will not stop if two routes of the same kind matches the current route:
+ *
+ * wrong usage:
+ *
+ *     if(true) {
+ *       int {
+ *         Text("Match")
+ *       }
+ *     }
+ *     int {
+ *       Text("Will be displayed too")
+ *     }
+ *
+ * correct usage:
+ *
+ *     if(true) {
+ *       int {
+ *         Text("Match")
+ *       }
+ *     } else {
+ *       int {
+ *         Text("Won't be displayed")
+ *       }
+ *     }
  */
-@ContentBuilderDSL
-public class NavBuilder internal constructor(private val node: RouteNode) {
+@Routing
+public class NavBuilder internal constructor(
+    private val remainingPath: Path
+) {
+    public val parameters: Parameters? get() = remainingPath.parameters
+
+    private var match by mutableStateOf(Match.Unknown)
+
+    private enum class Match {
+        Constant, Integer, String, Uuid, NoMatch, Unknown
+    }
+
 
     /**
      * Executes its children when the requested subroute matches this constant [route].
      *
      * To match `foo/bar`, create a [route] inside the first [route].
      */
-    @RouteBuilderDSL
+    @Routing
+    @Composable
     public fun route(
         route: String,
-        nestedRoute: NavBuilder.() -> Unit
+        nestedRoute: @Composable NavBuilder.() -> Unit
     ) {
-        val childNode = ConstantRouteNode(route)
-        NavBuilder(childNode).apply { nestedRoute() }
-        node.children += childNode
+        val relaxedRoute = route.removePrefix("/").removeSuffix("/")
+        require(!relaxedRoute.contains("/")) { "To use nested routes, use route() { route() { } } instead." }
+        val currentPath = remainingPath.currentPath
+        if ((match == Match.Unknown || match == Match.Constant) && relaxedRoute == currentPath) {
+            val newPath = remainingPath.newPath(currentPath)
+            val newState = remember(newPath) { NavBuilder(newPath) }
+            newState.nestedRoute()
+            match = Match.Constant
+        }
     }
 
     /**
      * Executes its children when the requested subroute is a [String].
-     *
-     * To get the route parameter, call the [Lazy] parameter inside a [ContentNode].
      */
-    @RouteBuilderDSL
-    public fun stringRoute(nestedRoute: NavBuilder.(Lazy<String>) -> Unit) {
-        val childNode = StringRouteNode()
-        NavBuilder(childNode).apply {
-            nestedRoute(lazy {
-                childNode.variable
-            })
+    @Routing
+    @Composable
+    public fun string(nestedRoute: @Composable NavBuilder.(String) -> Unit) {
+        val currentPath = remainingPath.currentPath
+        if ((match == Match.Unknown || match == Match.String) && currentPath.isNotEmpty()) {
+            val newPath = remainingPath.newPath(currentPath)
+            val newState = remember(newPath) { NavBuilder(newPath) }
+            newState.nestedRoute(currentPath)
+            match = Match.String
         }
-        node.children += childNode
     }
-
-    /**
-     * Displays this `@Composable` block when the last subroute is a [String].
-     * This acts as a catch-all rule, as every route is a [String].
-     */
-    @ContentBuilderDSL
-    public fun string(content: @Composable Content.(String) -> Unit) {
-        val childNode = StringContentNode().apply {
-            this.content = content
-        }
-        node.children += childNode
-    }
-
 
     /**
      * Executes its children when the requested subroute is a [Int].
-     *
-     * To get the route parameter, call the [Lazy] parameter inside a [ContentNode].
      */
-    @RouteBuilderDSL
-    public fun intRoute(nestedRoute: NavBuilder.(Lazy<Int>) -> Unit) {
-        val childNode = IntRouteNode()
-        NavBuilder(childNode).apply {
-            nestedRoute(lazy {
-                childNode.variable
-            })
+    @Routing
+    @Composable
+    public fun int(nestedRoute: @Composable NavBuilder.(Int) -> Unit) {
+        val currentPath = remainingPath.currentPath
+        val int = currentPath.toIntOrNull()
+        if ((match == Match.Unknown || match == Match.Integer) && int != null) {
+            val newPath = remainingPath.newPath(currentPath)
+            val newState = remember(newPath) { NavBuilder(newPath) }
+            newState.nestedRoute(int)
+            match = Match.Integer
         }
-        node.children += childNode
     }
-
-    /**
-     * Displays this `@Composable` block when the last subroute is a [Int].
-     */
-    @ContentBuilderDSL
-    public fun int(content: @Composable Content.(Int) -> Unit) {
-        val childNode = IntContentNode().apply {
-            this.content = content
-        }
-        node.children += childNode
-    }
-
 
     /**
      * Executes its children when the requested subroute is a [UUID].
-     *
-     * To get the route parameter, call the [Lazy] parameter inside a [ContentNode].
      */
-    @RouteBuilderDSL
-    public fun uuidRoute(nestedRoute: NavBuilder.(Lazy<UUID>) -> Unit) {
-        val childNode = UUIDRouteNode()
-        NavBuilder(childNode).apply {
-            nestedRoute(lazy {
-                childNode.variable
-            })
+    @Routing
+    @Composable
+    public fun uuid(nestedRoute: @Composable NavBuilder.(UUID) -> Unit) {
+        val currentPath = remainingPath.currentPath
+        val uuid = currentPath
+        if ((match == Match.Unknown || match == Match.Uuid) && validateUUID(uuid)) {
+            val newPath = remainingPath.newPath(currentPath)
+            val newState = remember(newPath) { NavBuilder(newPath) }
+            newState.nestedRoute(uuid)
+            match = Match.Uuid
         }
-        node.children += childNode
     }
 
     /**
-     * Displays this `@Composable` block when the last subroute is a [UUID].
+     * Fallback if no matching route is found.
      */
-    @ContentBuilderDSL
-    public fun uuid(content: @Composable Content.(UUID) -> Unit) {
-        val childNode = UUIDContentNode().apply {
-            this.content = content
+    @Routing
+    @Composable
+    public fun noMatch(content: @Composable () -> Unit) {
+        if ((match == Match.Unknown || match == Match.NoMatch)) {
+            content()
+            match = Match.NoMatch
         }
-        node.children += childNode
     }
-
-    /**
-     * Always displays this `@Composable` when called by [RouteNode.execute].
-     */
-    @ContentBuilderDSL
-    public fun noMatch(content: @Composable Content.() -> Unit) {
-        node.children += SimpleContentNode().apply { this.content = content }
-    }
-
-    /**
-     * Just a simple object to use in the DSL preventing misuse
-     */
-    @ContentBuilderDSL
-    public object Content
 }

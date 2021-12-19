@@ -4,62 +4,24 @@ import androidx.compose.runtime.*
 import kotlin.reflect.*
 
 
-public abstract class Router(private val initPath: String) {
+public abstract class Router {
     public abstract fun navigate(to: String)
 
-
-    private var subCounter = 0
-    private val subscriber: MutableMap<Int, (String) -> Unit> = mutableMapOf()
-
-    private fun subscribe(block: (String) -> Unit): Int {
-        subscriber[subCounter] = block
-        return subCounter.also {
-            subCounter += 1
-        }
-    }
-
-    private fun removeSubscription(id: Int) {
-        subscriber.remove(id)
-    }
-
-    internal fun update(newPath: String) {
-        subscriber.entries.forEach { (_, fn) ->
-            fn(newPath)
-        }
-    }
-
     @Composable
-    public fun getPath(initRoute: String): State<String> {
-        require(initRoute.startsWith("/")) { "initRoute must start with a slash." }
-        val defaultPath = initPath.ifBlank { initRoute }
-        val path = remember { mutableStateOf(defaultPath) }
-        DisposableEffect(Unit) {
-            val id = subscribe {
-                path.value = it
-            }
-            onDispose {
-                removeSubscription(id)
-            }
-        }
-        return path
-    }
+    public abstract fun getPath(initPath: String): State<String>
 
     @Composable
     public operator fun invoke(
         initRoute: String,
-        builder: NavBuilder.() -> Unit
+        routing: @Composable NavBuilder.() -> Unit
     ) {
-        val root = RootNode()
-
         // Provide [RouterCompositionLocal] to composables deeper in the composition.
         CompositionLocalProvider(
             RouterCompositionLocal provides this
         ) {
-            NavBuilder(root).builder()
-
-            val fullPath by getPath(initRoute)
-            val withTrailingSlash = if (fullPath.endsWith("/")) fullPath else "$fullPath/"
-            root.execute(withTrailingSlash)
+            val rawPath by getPath(initRoute)
+            val node by derivedStateOf { NavBuilder(Path.from(rawPath)) }
+            node.routing()
         }
     }
 

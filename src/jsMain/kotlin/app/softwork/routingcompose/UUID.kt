@@ -7,6 +7,6 @@ internal external object UUIDGen {
     fun validate(uuid: UUID): Boolean
 }
 
-internal actual fun validateUUID(uuid: String): Boolean {
+internal actual fun validateUUID(uuid: UUID): Boolean {
     return UUIDGen.validate(uuid)
 }
